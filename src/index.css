@@ -1,0 +1,97 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    background-color: #e0e8f0;
+    color: #334155; /* slate-700 */
+    font-family: 'Inter', sans-serif;
+  }
+
+  ::selection {
+    background-color: #5eead4;
+    color: #0f172a;
+  }
+}
+
+/* ── Custom Scrollbar (neutral on light bg) ─────────────────────────────── */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: #d4dce8;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #a8b4c4;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #8fa0b2;
+}
+
+/* ── Neumorphic Utility Classes ─────────────────────────────────────────── */
+
+/* Raised card surface — floats above the background */
+.neu-card {
+  background: #e0e8f0;
+  box-shadow: 9px 9px 18px #bec6d0, -9px -9px 18px #ffffff;
+  border-radius: 1.5rem; /* 24px */
+  border: none;
+}
+
+/* Small raised card — for compact elements */
+.neu-card-sm {
+  background: #e0e8f0;
+  box-shadow: 5px 5px 10px #bec6d0, -5px -5px 10px #ffffff;
+  border-radius: 1rem;
+  border: none;
+}
+
+/* Inset / recessed surface — inputs, search bar, active-pressed tabs */
+.neu-inset {
+  background: #e0e8f0;
+  box-shadow: inset 4px 4px 8px #bec6d0, inset -4px -4px 8px #ffffff;
+  border-radius: 1rem;
+  border: none;
+}
+
+/* Pressed button state */
+.neu-pressed {
+  background: #e0e8f0;
+  box-shadow: inset 3px 3px 6px #bec6d0, inset -3px -3px 6px #ffffff;
+}
+
+/* Convex button — slightly raised, interactive */
+.neu-btn {
+  background: #e0e8f0;
+  box-shadow: 6px 6px 12px #bec6d0, -6px -6px 12px #ffffff;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+.neu-btn:hover {
+  box-shadow: 8px 8px 16px #bec6d0, -8px -8px 16px #ffffff;
+  transform: scale(1.02);
+}
+.neu-btn:active {
+  box-shadow: inset 3px 3px 6px #bec6d0, inset -3px -3px 6px #ffffff;
+  transform: scale(0.98);
+}
+
+/* Hover lift for cards */
+.neu-card-hover {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.neu-card-hover:hover {
+  transform: translateY(-3px);
+  box-shadow: 12px 12px 24px #bec6d0, -12px -12px 24px #ffffff;
+}
+
+/* Neu modal surface */
+.neu-modal {
+  background: #e0e8f0;
+  box-shadow: 16px 16px 40px #b8c2cc, -16px -16px 40px #ffffff;
+}
