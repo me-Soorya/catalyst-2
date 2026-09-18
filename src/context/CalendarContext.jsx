@@ -13,13 +13,13 @@ export const CalendarProvider = ({ children }) => {
   const [toast, setToast] = useState(null); // { message, type: 'success'|'error'|'info' }
 
   // Helper to trigger toast
-  const showToast = (message, type = 'info') => {
+  const showToast = useCallback((message, type = 'info') => {
     setToast({ id: Date.now(), message, type });
-  };
+  }, []);
 
-  const hideToast = () => {
+  const hideToast = useCallback(() => {
     setToast(null);
-  };
+  }, []);
 
   // Load events from Google Calendar API
   const loadEvents = useCallback(async () => {
@@ -44,18 +44,18 @@ export const CalendarProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [accessToken]);
+  }, [accessToken, showToast]);
 
   // Initial load when auth changes
   useEffect(() => {
     loadEvents();
   }, [loadEvents]);
 
-  const isExistingCalendarEvent = (eventData) => {
+  const isExistingCalendarEvent = useCallback((eventData) => {
     return findMatchingCalendarEvent(events, eventData.title, eventData.startDateTime);
-  };
+  }, [events]);
 
-  const addEvent = async (eventData) => {
+  const addEvent = useCallback(async (eventData) => {
     if (!accessToken) {
       showToast('Account is not connected. Please connect your Google Account.', 'error');
       throw new Error('Account is not connected');
@@ -80,9 +80,9 @@ export const CalendarProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [accessToken, isExistingCalendarEvent, loadEvents, showToast]);
 
-  const ensureCalendarEventExists = async (eventData, options = { silent: false }) => {
+  const ensureCalendarEventExists = useCallback(async (eventData, options = { silent: false }) => {
     if (!accessToken) {
       if (!options.silent) showToast('Account is not connected. Please connect your Google Account.', 'error');
       throw new Error('Account is not connected');
@@ -104,10 +104,10 @@ export const CalendarProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [accessToken, isExistingCalendarEvent, loadEvents, showToast]);
 
   // Remove event
-  const removeEvent = async (eventId) => {
+  const removeEvent = useCallback(async (eventId) => {
     if (!accessToken) {
       showToast('Account is not connected. Please connect your Google Account.', 'error');
       return;
@@ -120,7 +120,7 @@ export const CalendarProvider = ({ children }) => {
     } catch (err) {
       showToast('Failed to remove event: ' + err.message, 'error');
     }
-  };
+  }, [accessToken, showToast]);
 
   return (
     <CalendarContext.Provider

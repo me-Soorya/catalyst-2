@@ -6,8 +6,8 @@ dist/
 
 # Local env files
 .env
-.env.*
-.env.example
+.env.local
+.env.*.local
 
 
 # Vite cache
@@ -34,8 +34,6 @@ Thumbs.db
 *.local
 *.log
 
-# npm package lock
-package-lock.json
 
 # local npm/yarn/pnpm wrapper files
 .pnp.cjs

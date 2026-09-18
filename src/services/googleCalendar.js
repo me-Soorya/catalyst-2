@@ -81,13 +81,26 @@ export async function createCalendarEvent(accessToken, eventData) {
   const client = createCalendarClient(accessToken);
 
   // All-day events use { date: 'YYYY-MM-DD' }, timed events use { dateTime: ISO }
-  const startField = eventData.allDay
-    ? { date: new Date(eventData.startDateTime).toISOString().split('T')[0] }
-    : { dateTime: new Date(eventData.startDateTime).toISOString() };
+  let startField;
+  let endField;
 
-  const endField = eventData.allDay
-    ? { date: new Date(eventData.startDateTime).toISOString().split('T')[0] } // same day for single all-day
-    : { dateTime: new Date(eventData.endDateTime).toISOString() };
+  if (eventData.allDay) {
+    const startDateStr = new Date(eventData.startDateTime).toISOString().split('T')[0];
+    startField = { date: startDateStr };
+
+    // Google Calendar API requires all-day end.date to be exclusive (strictly after start date)
+    let endDate;
+    if (eventData.endDateTime && new Date(eventData.endDateTime) > new Date(eventData.startDateTime)) {
+      endDate = new Date(eventData.endDateTime);
+    } else {
+      endDate = new Date(eventData.startDateTime);
+      endDate.setDate(endDate.getDate() + 1);
+    }
+    endField = { date: endDate.toISOString().split('T')[0] };
+  } else {
+    startField = { dateTime: new Date(eventData.startDateTime).toISOString() };
+    endField = { dateTime: new Date(eventData.endDateTime || eventData.startDateTime).toISOString() };
+  }
 
   const payload = {
     summary: eventData.title,
@@ -106,7 +119,15 @@ export async function createCalendarEvent(accessToken, eventData) {
  * Deletes an event from user's primary Google Calendar
  */
 export async function deleteCalendarEvent(accessToken, eventId) {
-  if (!accessToken) return;
+  if (!accessToken || !eventId) return;
   const client = createCalendarClient(accessToken);
-  await client.delete(`/calendars/primary/events/${eventId}`);
+  try {
+    await client.delete(`/calendars/primary/events/${eventId}`);
+  } catch (err) {
+    // If the event was already deleted on Google Calendar directly (404/410), treat as resolved
+    if (err.response?.status === 404 || err.response?.status === 410) {
+      return;
+    }
+    throw err;
+  }
 }

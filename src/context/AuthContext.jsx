@@ -35,12 +35,15 @@ export const AuthProvider = ({ children }) => {
 
   // Sync token to sessionStorage and fetch profile when needed
   useEffect(() => {
+    let isMounted = true;
+
     if (accessToken) {
       sessionStorage.setItem('catalyst_google_token', accessToken);
 
       if (!user) {
         fetchGoogleUserProfile(accessToken)
           .then((profile) => {
+            if (!isMounted) return;
             const userProfile = {
               name: profile.name || profile.email?.split('@')[0] || DEFAULT_USER.name,
               email: profile.email || '',
@@ -50,34 +53,33 @@ export const AuthProvider = ({ children }) => {
             sessionStorage.setItem('catalyst_user', JSON.stringify(userProfile));
           })
           .catch((err) => {
-            console.error('Failed to fetch Google profile:', err);
-            setUser(DEFAULT_USER);
-            sessionStorage.setItem('catalyst_user', JSON.stringify(DEFAULT_USER));
+            console.warn('Failed to fetch Google profile (token may be expired):', err.message);
+            if (!isMounted) return;
+            // Clear expired or invalid credentials
+            if (err.message?.includes('401') || err.message?.includes('403')) {
+              setAccessToken(null);
+              setUser(null);
+              sessionStorage.removeItem('catalyst_google_token');
+              sessionStorage.removeItem('catalyst_user');
+            } else {
+              setUser(DEFAULT_USER);
+              sessionStorage.setItem('catalyst_user', JSON.stringify(DEFAULT_USER));
+            }
           });
       }
     } else {
       sessionStorage.removeItem('catalyst_google_token');
       sessionStorage.removeItem('catalyst_user');
     }
+
+    return () => {
+      isMounted = false;
+    };
   }, [accessToken, user]);
 
-  const handleGoogleSuccess = async (tokenResponse) => {
+  const handleGoogleSuccess = (tokenResponse) => {
+    // Setting accessToken triggers the profile fetch in useEffect
     setAccessToken(tokenResponse.access_token);
-
-    try {
-      const profile = await fetchGoogleUserProfile(tokenResponse.access_token);
-      const userProfile = {
-        name: profile.name || profile.email?.split('@')[0] || DEFAULT_USER.name,
-        email: profile.email || '',
-        avatar: profile.picture || DEFAULT_USER.avatar,
-      };
-      setUser(userProfile);
-      sessionStorage.setItem('catalyst_user', JSON.stringify(userProfile));
-    } catch (err) {
-      console.error('Failed to fetch Google profile:', err);
-      setUser(DEFAULT_USER);
-      sessionStorage.setItem('catalyst_user', JSON.stringify(DEFAULT_USER));
-    }
   };
 
   // Google OAuth Login Hook requesting calendar scope

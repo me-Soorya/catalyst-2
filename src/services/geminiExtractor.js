@@ -38,41 +38,50 @@ Return ONLY a valid JSON object matching this schema:
   const promptText = `Course: ${courseName}\nPost Content:\n${text}`;
 
   if (apiKey) {
-    try {
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+    const candidateModels = ['gemini-2.5-flash', 'gemini-1.5-flash'];
 
-      const payload = {
-        contents: [
-          {
-            role: 'user',
-            parts: [{ text: `${systemInstructionText}\n\n${promptText}` }],
+    for (const modelName of candidateModels) {
+      try {
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+
+        const payload = {
+          contents: [
+            {
+              role: 'user',
+              parts: [{ text: `${systemInstructionText}\n\n${promptText}` }],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.1,
+            responseMimeType: 'application/json',
           },
-        ],
-        generationConfig: {
-          temperature: 0.1,
-          responseMimeType: 'application/json',
-        },
-      };
-
-      const response = await axios.post(endpoint, payload, {
-        headers: { 'Content-Type': 'application/json' },
-      });
-
-      const rawContent = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (rawContent) {
-        const cleanedJson = rawContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-        const parsed = JSON.parse(cleanedJson);
-        return {
-          isAssignment: Boolean(parsed.isAssignment),
-          title: parsed.title || 'Course Material',
-          course: parsed.course || courseName,
-          hasDueDate: Boolean(parsed.hasDueDate),
-          dueDateISO: parsed.dueDateISO || null,
-          summary: parsed.summary || 'AI parsed material.',
         };
+
+        const response = await axios.post(endpoint, payload, {
+          headers: { 'Content-Type': 'application/json' },
+        });
+
+        const rawContent = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (rawContent) {
+          const cleanedJson = rawContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+          const parsed = JSON.parse(cleanedJson);
+          return {
+            isAssignment: Boolean(parsed.isAssignment),
+            title: parsed.title || 'Course Material',
+            course: parsed.course || courseName,
+            hasDueDate: Boolean(parsed.hasDueDate),
+            dueDateISO: parsed.dueDateISO || null,
+            summary: parsed.summary || 'AI parsed material.',
+          };
+        }
+      } catch (err) {
+        // If model not found (404), continue to next model; otherwise log and break to local fallback
+        if (err.response?.status === 404) {
+          continue;
+        }
+        console.warn(`Gemini API call (${modelName}) error (falling back to rule-based parser):`, err.response?.data || err.message);
+        break;
       }
-    } catch (err) {
-      console.warn('Gemini API call error (falling back to rule-based parser):', err.response?.data || err.message);
     }
   }
 

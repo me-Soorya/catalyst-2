@@ -5,7 +5,10 @@ import { AuthProvider } from './context/AuthContext';
 import App from './App';
 import './index.css';
 
-const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || 'demo-client-id.apps.googleusercontent.com';
+const rawClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+const googleClientId = (rawClientId && rawClientId.trim().length > 0)
+  ? rawClientId.trim()
+  : 'demo-client-id.apps.googleusercontent.com';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

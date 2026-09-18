@@ -33,36 +33,34 @@ export function isCurrentYearAcademicCourse(course) {
     return false;
   }
 
-  const creationTime = course.creationTime || '';
+  // If this is a demo course, strictly apply the demo legacy filter
+  if (course.id && String(course.id).startsWith('demo-')) {
+    if (String(course.id).includes('legacy')) return false;
+    const name = course.name || '';
+    const section = course.section || '';
+    const fullText = `${name} ${section}`.toUpperCase();
+    if (fullText.includes('2024') || fullText.includes('2025')) return false;
+    return true;
+  }
+
+  // For real Google Classroom courses:
+  // Since the API request specifically queried courseStates=ACTIVE,
+  // ensure it is not explicitly marked with past archived years.
   const name = course.name || '';
   const section = course.section || '';
   const fullText = `${name} ${section}`.toUpperCase();
 
-  // Current year string
-  const currentYearStr = '2026';
+  const currentYear = new Date().getFullYear();
+  const priorYears = Array.from({ length: 5 }, (_, i) => String(currentYear - 1 - i));
+  const hasPriorYearTag = priorYears.some((year) => fullText.includes(year));
+  const hasCurrentYearTag = fullText.includes(String(currentYear));
 
-  // Check if created in current year (2026)
-  const isCreatedInCurrentYear = creationTime.startsWith(currentYearStr);
-
-  // Check if title or section mentions 2026
-  const containsCurrentYear = fullText.includes(currentYearStr);
-
-  // Check if explicitly created in a prior year (e.g. 2025, 2024, 2023)
-  const isPriorYearCreation = /^20(1\d|2[0-5])/.test(creationTime);
-
-  // If created in a prior year (2025 or earlier) and section/title does not say 2026, EXCLUDE!
-  if (isPriorYearCreation && !containsCurrentYear) {
+  // If title explicitly mentions an old year and does not mention the current year, exclude
+  if (hasPriorYearTag && !hasCurrentYearTag) {
     return false;
   }
 
-  // If creationTime exists, require created in 2026 OR explicitly labeled 2026
-  if (creationTime) {
-    return isCreatedInCurrentYear || containsCurrentYear;
-  }
-
-  // If creationTime is not returned by API, exclude if title mentions prior years (2024, 2025, S1, S2, S3)
-  const mentionsPriorTerms = ['2023', '2024', '2025', 'S1', 'S2', 'S3'].some((term) => fullText.includes(term));
-  return !mentionsPriorTerms;
+  return true;
 }
 
 // ─── DEMO DATA (INCLUDES BOTH LEGACY AND CURRENT-YEAR COURSES) ────────────────

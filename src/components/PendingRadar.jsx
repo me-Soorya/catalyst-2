@@ -42,6 +42,8 @@ export default function PendingRadar() {
 
   // Load pending assignments on mount or auth change
   useEffect(() => {
+    let isCancelled = false;
+
     async function loadRadarData() {
       setLoadingPending(true);
       try {
@@ -49,6 +51,8 @@ export default function PendingRadar() {
           fetchEnrolledCourses(accessToken),
           fetchPendingStudentAssignments(accessToken),
         ]);
+
+        if (isCancelled) return;
         setCourses(courseList);
         setPendingAssignments(pendingList);
 
@@ -58,14 +62,23 @@ export default function PendingRadar() {
           });
         }
       } catch (err) {
-        console.error('Failed to load pending assignments:', err);
-        showToast('Error loading pending assignments', 'error');
+        if (!isCancelled) {
+          console.error('Failed to load pending assignments:', err);
+          showToast('Error loading pending assignments', 'error');
+        }
       } finally {
-        setLoadingPending(false);
+        if (!isCancelled) {
+          setLoadingPending(false);
+        }
       }
     }
+
     loadRadarData();
-  }, [accessToken, ensureCalendarEventExists]);
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [accessToken]);
 
   // Run AI scan on 2026 courses for hidden deadlines
   const handleRunAIScan = async () => {
