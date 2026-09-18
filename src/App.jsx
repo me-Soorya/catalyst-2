@@ -201,7 +201,7 @@ function Dashboard() {
                 </div>
               ) : (
                 <button
-                  onClick={() => login()}
+                  onClick={login}
                   className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl neu-btn text-slate-600 text-xs font-semibold"
                 >
                   <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
@@ -302,7 +302,7 @@ function Dashboard() {
 
                   {!isAuthenticated && (
                     <button
-                      onClick={() => login()}
+                      onClick={login}
                       className="flex items-center gap-2 px-5 py-4 rounded-2xl neu-btn text-rose-600 text-sm font-semibold self-stretch"
                     >
                       <AlertCircle className="w-4 h-4" />

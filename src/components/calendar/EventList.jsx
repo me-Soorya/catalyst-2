@@ -188,7 +188,7 @@ export default function EventList({ onOpenCreateModal }) {
             Connect your Google Account to view, schedule, and sync your academic deadlines to Google Calendar.
           </p>
           <button
-            onClick={() => login()}
+            onClick={login}
             className="flex items-center gap-2.5 px-6 py-3 rounded-xl text-white font-bold text-sm bg-gradient-to-br from-indigo-500 to-violet-600 shadow-[0_4px_16px_rgba(99,102,241,0.4)] hover:shadow-[0_6px_24px_rgba(99,102,241,0.5)] hover:scale-[1.02] active:scale-[0.97] transition-all"
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24">

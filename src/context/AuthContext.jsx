@@ -87,6 +87,9 @@ export const AuthProvider = ({ children }) => {
     onSuccess: handleGoogleSuccess,
     onError: (error) => {
       console.error('Google Auth Failed:', error);
+      if (error?.error === 'popup_blocked_by_browser' || error?.type === 'popup_failed_to_open') {
+        alert('Popup was blocked by your browser! Please click the popup icon in the right corner of your address bar and choose "Always allow popups from this site", then try again.');
+      }
     },
     scope: 'openid profile email https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/classroom.courses.readonly https://www.googleapis.com/auth/classroom.coursework.me.readonly https://www.googleapis.com/auth/classroom.announcements.readonly https://www.googleapis.com/auth/classroom.courseworkmaterials.readonly',
   });
