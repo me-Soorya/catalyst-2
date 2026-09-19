@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { format } from 'date-fns';
-import { GraduationCap, BookOpen, Briefcase, Zap, LogOut, AlertCircle, Plus, Calendar as CalendarIcon, Sparkles } from 'lucide-react';
+import { GraduationCap, BookOpen, Briefcase, Zap, LogOut, AlertCircle, Plus, Calendar as CalendarIcon, Sparkles, Moon, XCircle, RotateCcw } from 'lucide-react';
 import AddEventModal from './components/calendar/AddEventModal';
 import CalendarModal from './components/CalendarModal';
 import EventList from './components/calendar/EventList';
@@ -9,6 +9,7 @@ import Toast from './components/common/Toast';
 import { useAuth } from './context/AuthContext';
 import { useCalendar, CalendarProvider } from './context/CalendarContext';
 import { fetchPendingStudentAssignments } from './services/googleClassroom';
+import { APPROVAL_STATES, APPROVAL_STATE_CONFIG, REJECTION_REASONS, useApprovalStore } from './services/approvalStore';
 
 // ─── KPI card accent configs ──────────────────────────────────────────────────
 const KPI_CARDS = [
@@ -76,6 +77,7 @@ const KPI_CARDS = [
 function Dashboard() {
   const { accessToken, user, isAuthenticated, login, logout } = useAuth();
   const { events, addEvent, showToast } = useCalendar();
+  const { getStatus, getRecord, approve, snooze, reject, reset } = useApprovalStore();
 
   const [activeView, setActiveView]         = useState('dashboard'); // 'dashboard' | 'classroom'
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -83,6 +85,7 @@ function Dashboard() {
   const [clock, setClock]                   = useState(new Date());
   const [pendingAssignments, setPendingAssignments] = useState([]);
   const [syncingId, setSyncingId]           = useState(null);
+  const [rejectMenuOpen, setRejectMenuOpen] = useState({});
 
   useEffect(() => {
     const timer = setInterval(() => setClock(new Date()), 1000);
@@ -372,30 +375,65 @@ function Dashboard() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {pendingAssignments.slice(0, 4).map((assignment) => {
                     const isSyncing = syncingId === assignment.id;
+                    const approvalState = getStatus(assignment.id);
+                    const approvalRecord = getRecord(assignment.id);
+                    const approvalCfg = APPROVAL_STATE_CONFIG[approvalState];
+                    const isApproved = approvalState === APPROVAL_STATES.APPROVED;
+                    const isSnoozed  = approvalState === APPROVAL_STATES.SNOOZED;
+                    const isRejected = approvalState === APPROVAL_STATES.REJECTED;
+                    const isPending  = !isApproved && !isSnoozed && !isRejected;
+
                     return (
                       <div
                         key={assignment.id}
-                        className="p-4 rounded-2xl neu-inset bg-white/60 flex flex-col justify-between gap-3 border border-white/80"
+                        className={`p-4 rounded-2xl neu-inset bg-white/60 flex flex-col justify-between gap-3 border transition-all ${
+                          isApproved ? 'border-emerald-200/80' : isRejected ? 'border-rose-200/60 opacity-70' : 'border-white/80'
+                        }`}
                       >
                         <div className="space-y-1.5">
-                          <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center justify-between gap-2 flex-wrap">
                             <span className="px-2 py-0.5 rounded-md bg-teal-100 text-teal-800 font-extrabold text-[10px] uppercase">
                               {assignment.courseName}
                             </span>
-                            <span className={`text-[10px] font-bold uppercase tracking-wide rounded-md px-2 py-0.5 ${
-                              assignment.assignmentStatus === '❌ Missing'
-                                ? 'bg-rose-50 text-rose-700'
-                                : assignment.assignmentStatus === '⚠️ No Due Date'
-                                ? 'bg-indigo-50 text-indigo-700'
-                                : 'bg-amber-50 text-amber-700'
-                            }`}>
-                              {assignment.assignmentStatus || (assignment.hasNoDueDate ? '⚠️ No Due Date' : '⏳ Pending')}
-                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <span className={`text-[10px] font-bold uppercase tracking-wide rounded-md px-2 py-0.5 ${
+                                assignment.assignmentStatus === '❌ Missing'
+                                  ? 'bg-rose-50 text-rose-700'
+                                  : assignment.assignmentStatus === '⚠️ No Due Date'
+                                  ? 'bg-indigo-50 text-indigo-700'
+                                  : 'bg-amber-50 text-amber-700'
+                              }`}>
+                                {assignment.assignmentStatus || (assignment.hasNoDueDate ? '⚠️ No Due Date' : '⏳ Pending')}
+                              </span>
+                              {/* Approval State Badge */}
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold border ${approvalCfg.badgeClass}`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${approvalCfg.dotClass}`} />
+                                {approvalCfg.icon} {approvalCfg.label}
+                              </span>
+                            </div>
                           </div>
 
                           <h4 className="font-extrabold text-slate-800 text-sm">{assignment.title}</h4>
                           {assignment.description && (
                             <p className="text-xs text-slate-500 line-clamp-1">{assignment.description}</p>
+                          )}
+
+                          {/* State-specific info */}
+                          {isSnoozed && approvalRecord?.snoozeUntil && (
+                            <span className="inline-flex items-center gap-1 text-[10px] text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md">
+                              <Moon className="w-3 h-3" />
+                              Snoozed
+                            </span>
+                          )}
+                          {isRejected && approvalRecord?.rejectionReason && (
+                            <span className="inline-flex items-center gap-1 text-[10px] text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md">
+                              <XCircle className="w-3 h-3" /> {approvalRecord.rejectionReason}
+                            </span>
+                          )}
+                          {isApproved && approvalRecord?.calendarLink && (
+                            <a href={approvalRecord.calendarLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[10px] text-emerald-700 underline">
+                              <CalendarIcon className="w-3 h-3" /> View in Calendar
+                            </a>
                           )}
                         </div>
 
@@ -409,41 +447,92 @@ function Dashboard() {
                             Open Classroom
                           </a>
 
-                          <button
-                            onClick={async () => {
-                              setSyncingId(assignment.id);
-                              try {
-                                const startDateTime = assignment.dueDateISO || new Date().toISOString();
-                                const endDate = new Date(startDateTime);
-                                endDate.setHours(endDate.getHours() + 1);
+                          {/* Restore if not pending */}
+                          {(isApproved || isSnoozed || isRejected) ? (
+                            <button
+                              onClick={() => reset(assignment.id)}
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl neu-btn text-xs font-bold text-slate-600 hover:text-indigo-700"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5" />
+                              Restore
+                            </button>
+                          ) : (
+                            <div className="flex items-center gap-1.5">
+                              {/* Snooze */}
+                              <button
+                                onClick={() => { snooze(assignment.id, 24); showToast('💤 Snoozed for 24h', 'info'); }}
+                                className="p-1.5 rounded-xl neu-btn text-purple-500 hover:text-purple-700"
+                                title="Snooze 24h"
+                              >
+                                <Moon className="w-3.5 h-3.5" />
+                              </button>
 
-                                await addEvent({
-                                  title: `[DUE] ${assignment.title} (${assignment.courseName})`,
-                                  description: `Course: ${assignment.courseName}\nInstructions: ${assignment.description}\nLink: ${assignment.alternateLink}\n\n[Synced via Catalyst AI Dashboard]`,
-                                  startDateTime,
-                                  endDateTime: endDate.toISOString(),
-                                  colorId: '11',
-                                });
+                              {/* Reject quick */}
+                              <div className="relative">
+                                <button
+                                  onClick={() => setRejectMenuOpen((p) => ({ ...p, [assignment.id]: !p[assignment.id] }))}
+                                  className="p-1.5 rounded-xl text-slate-400 hover:text-rose-500"
+                                  title="Reject"
+                                >
+                                  <XCircle className="w-3.5 h-3.5" />
+                                </button>
+                                {rejectMenuOpen[assignment.id] && (
+                                  <div className="absolute right-0 bottom-full mb-2 bg-white border border-slate-200 rounded-2xl shadow-xl p-3 min-w-[180px] z-30">
+                                    <p className="text-[10px] font-bold text-slate-500 uppercase mb-1.5">Rejection Reason</p>
+                                    {REJECTION_REASONS.map((reason) => (
+                                      <button
+                                        key={reason}
+                                        onClick={() => { reject(assignment.id, reason); setRejectMenuOpen((p) => ({ ...p, [assignment.id]: false })); showToast(`❌ Rejected: "${reason}"`, 'info'); }}
+                                        className="w-full text-left text-xs px-3 py-1.5 rounded-lg hover:bg-rose-50 hover:text-rose-700 text-slate-700 transition-colors"
+                                      >
+                                        {reason}
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
 
-                                setPendingAssignments((prev) => prev.filter((item) => item.id !== assignment.id));
-                              } catch (err) {
-                                console.error('Sync failed:', err);
-                              } finally {
-                                setSyncingId(null);
-                              }
-                            }}
-                            disabled={isSyncing}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-white font-bold text-xs bg-indigo-600 hover:bg-indigo-700 shadow-neu-xs transition-all disabled:opacity-50"
-                          >
-                            {isSyncing ? (
-                              <span>Syncing...</span>
-                            ) : (
-                              <>
-                                <CalendarIcon className="w-3.5 h-3.5" />
-                                <span>📅 Sync to Google Calendar</span>
-                              </>
-                            )}
-                          </button>
+                              {/* Approve & Sync */}
+                              <button
+                                onClick={async () => {
+                                  setSyncingId(assignment.id);
+                                  try {
+                                    const startDateTime = assignment.dueDateISO || new Date().toISOString();
+                                    const endDate = new Date(startDateTime);
+                                    endDate.setHours(endDate.getHours() + 1);
+
+                                    const createdEvent = await addEvent({
+                                      title: `[DUE] ${assignment.title} (${assignment.courseName})`,
+                                      description: `Course: ${assignment.courseName}\nInstructions: ${assignment.description}\nLink: ${assignment.alternateLink}\n\n[Approved via Catalyst AI Dashboard]`,
+                                      startDateTime,
+                                      endDateTime: endDate.toISOString(),
+                                      colorId: '11',
+                                    });
+
+                                    approve(assignment.id, {
+                                      calendarEventId: createdEvent?.id,
+                                      calendarLink: createdEvent?.htmlLink,
+                                    });
+                                  } catch (err) {
+                                    console.error('Sync failed:', err);
+                                  } finally {
+                                    setSyncingId(null);
+                                  }
+                                }}
+                                disabled={isSyncing}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-white font-bold text-xs bg-emerald-600 hover:bg-emerald-700 shadow-neu-xs transition-all disabled:opacity-50"
+                              >
+                                {isSyncing ? (
+                                  <span>Approving...</span>
+                                ) : (
+                                  <>
+                                    <CalendarIcon className="w-3.5 h-3.5" />
+                                    <span>✅ Approve</span>
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </div>
                     );
