@@ -1,5 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useGoogleLogin } from '@react-oauth/google';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
 const AuthContext = createContext();
 
@@ -33,70 +32,68 @@ export const AuthProvider = ({ children }) => {
     return saved ? JSON.parse(saved) : null;
   });
 
-  // Sync token to sessionStorage and fetch profile when needed
-  useEffect(() => {
-    let isMounted = true;
+  const handleTokenReceived = useCallback(async (token) => {
+    setAccessToken(token);
+    sessionStorage.setItem('catalyst_google_token', token);
 
-    if (accessToken) {
-      sessionStorage.setItem('catalyst_google_token', accessToken);
-
-      if (!user) {
-        fetchGoogleUserProfile(accessToken)
-          .then((profile) => {
-            if (!isMounted) return;
-            const userProfile = {
-              name: profile.name || profile.email?.split('@')[0] || DEFAULT_USER.name,
-              email: profile.email || '',
-              avatar: profile.picture || DEFAULT_USER.avatar,
-            };
-            setUser(userProfile);
-            sessionStorage.setItem('catalyst_user', JSON.stringify(userProfile));
-          })
-          .catch((err) => {
-            console.warn('Failed to fetch Google profile (token may be expired):', err.message);
-            if (!isMounted) return;
-            // Clear expired or invalid credentials
-            if (err.message?.includes('401') || err.message?.includes('403')) {
-              setAccessToken(null);
-              setUser(null);
-              sessionStorage.removeItem('catalyst_google_token');
-              sessionStorage.removeItem('catalyst_user');
-            } else {
-              setUser(DEFAULT_USER);
-              sessionStorage.setItem('catalyst_user', JSON.stringify(DEFAULT_USER));
-            }
-          });
-      }
-    } else {
-      sessionStorage.removeItem('catalyst_google_token');
-      sessionStorage.removeItem('catalyst_user');
+    try {
+      const profile = await fetchGoogleUserProfile(token);
+      const userProfile = {
+        name: profile.name || profile.email?.split('@')[0] || DEFAULT_USER.name,
+        email: profile.email || '',
+        avatar: profile.picture || DEFAULT_USER.avatar,
+      };
+      setUser(userProfile);
+      sessionStorage.setItem('catalyst_user', JSON.stringify(userProfile));
+    } catch (err) {
+      console.error('Failed to fetch Google profile:', err);
+      setUser(DEFAULT_USER);
+      sessionStorage.setItem('catalyst_user', JSON.stringify(DEFAULT_USER));
     }
+  }, []);
 
-    return () => {
-      isMounted = false;
-    };
-  }, [accessToken, user]);
-
-  const handleGoogleSuccess = (tokenResponse) => {
-    // Setting accessToken triggers the profile fetch in useEffect
-    setAccessToken(tokenResponse.access_token);
-  };
-
-  // Google OAuth Login Hook requesting calendar scope
-  const googleLogin = useGoogleLogin({
-    onSuccess: handleGoogleSuccess,
-    onError: (error) => {
-      console.error('Google Auth Failed:', error);
-      if (error?.error === 'popup_blocked_by_browser' || error?.type === 'popup_failed_to_open') {
-        alert('Popup was blocked by your browser! Please click the popup icon in the right corner of your address bar and choose "Always allow popups from this site", then try again.');
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash && hash.includes('access_token=')) {
+      const params = new URLSearchParams(hash.substring(1));
+      const token = params.get('access_token');
+      if (token) {
+        handleTokenReceived(token);
+        window.history.replaceState(null, '', window.location.pathname);
       }
-    },
-    scope: 'openid profile email https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/classroom.courses.readonly https://www.googleapis.com/auth/classroom.coursework.me.readonly https://www.googleapis.com/auth/classroom.announcements.readonly https://www.googleapis.com/auth/classroom.courseworkmaterials.readonly',
-  });
+    }
+  }, [handleTokenReceived]);
+
+  const login = () => {
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+    const redirectUri = window.location.origin;
+    const scopes = [
+      'openid',
+      'profile',
+      'email',
+      'https://www.googleapis.com/auth/calendar.events',
+      'https://www.googleapis.com/auth/classroom.courses.readonly',
+      'https://www.googleapis.com/auth/classroom.coursework.me.readonly',
+      'https://www.googleapis.com/auth/classroom.announcements.readonly',
+      'https://www.googleapis.com/auth/classroom.courseworkmaterials.readonly',
+    ].join(' ');
+
+    const authUrl =
+      'https://accounts.google.com/o/oauth2/v2/auth?' +
+      `client_id=${encodeURIComponent(clientId)}` +
+      `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+      '&response_type=token' +
+      `&scope=${encodeURIComponent(scopes)}` +
+      '&prompt=select_account';
+
+    window.location.href = authUrl;
+  };
 
   const logout = () => {
     setAccessToken(null);
     setUser(null);
+    sessionStorage.removeItem('catalyst_google_token');
+    sessionStorage.removeItem('catalyst_user');
   };
 
   return (
@@ -105,7 +102,7 @@ export const AuthProvider = ({ children }) => {
         accessToken,
         user,
         isAuthenticated: !!accessToken,
-        login: googleLogin,
+        login,
         logout,
       }}
     >
